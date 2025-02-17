@@ -1,9 +1,89 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Bot, Send } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useChromeStorage } from '@/hooks/useChromeStorage'
+import generateDetailedSteps from '@/lib/generateDetailsSteps'
+
+interface StepDetail {
+  tag: string;
+  id: string;
+  class: string;
+  name: string;
+  other: string;
+}
+
+interface Step {
+  details: StepDetail;
+  instruction: string;
+  selector: string;
+  type: string;
+}
+
+interface Message {
+  id: number
+  text: string
+  sender: 'user' | 'assistant'
+}
 
 const ChatBox = ({ visible }: { visible: boolean }) => {
+  const [apiKey, setApiKey] = useState<string>('')
+  const [html, setHtml] = useState<string>('')
+  const [websiteContext, setWebsiteContext] = useState<string>('')
+  const [messages, setMessages] = useState<Message[]>([])
+  const { getKeyModel } = useChromeStorage()
+
+  useEffect(() => {
+    const fetchKeyAndContext = async () => {
+      try {
+        const key = await getKeyModel('groq')
+        setApiKey(key.apiKey)
+        setHtml(document.documentElement.outerHTML)
+        setWebsiteContext(window.location.href)
+      } catch (error) {
+        console.error('Error fetching API key')
+      }
+    }
+    fetchKeyAndContext()
+  }, [getKeyModel])
+
+  const sendQuery = useCallback(async () => {
+    try {
+      const input = document.querySelector('#query-input') as HTMLInputElement
+      if (!input || !input.value.trim()) return
+
+      const query = input.value.trim()
+      input.value = '' // Clear input field after sending
+
+      setMessages((prev) => [...prev, { id: Date.now(), text: query, sender: 'user' }])
+
+      const detailedSteps = await generateDetailedSteps(query, websiteContext, html, apiKey)
+      
+      if (!detailedSteps || !detailedSteps.steps || !Array.isArray(detailedSteps.steps)) {
+        throw new Error('Invalid response format')
+      }
+
+      // Format the steps into a readable message
+      const stepsMessage = detailedSteps.steps.map((step: Step, index: number) => {
+        return `Step ${index + 1}: ${step.instruction}`
+      }).join('\n')
+
+      setMessages((prev) => [...prev, { 
+        id: Date.now(), 
+        text: stepsMessage, 
+        sender: 'assistant' 
+      }])
+
+    } catch (error) {
+      console.error('Error sending query')
+      setMessages((prev) => [...prev, {
+        id: Date.now(),
+        text: "Sorry, I encountered an error processing your request. Please try again.",
+        sender: 'assistant'
+      }])
+    }
+  }, [websiteContext, html, apiKey])
+
   return (
     <AnimatePresence>
       {visible && (
@@ -23,23 +103,30 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto py-4 space-y-3">
-              <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 w-3/4">
-                Hello! How can I help you?
-              </div>
-              <div className="bg-blue-500 text-white rounded-lg p-3 w-3/4 self-end">
-                I need help with a feature.
-              </div>
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-3 rounded-lg max-w-[80%] ${
+                    msg.sender === 'user' ? 'bg-blue-500 text-white self-end' : 'bg-gray-100 dark:bg-gray-700 self-start'
+                  }`}
+                >
+                  <pre className="whitespace-pre-wrap break-words">
+                    {msg.text}
+                  </pre>
+                </div>
+              ))}
             </div>
 
             {/* Input Field */}
             <div className="border-t pt-3">
               <div className="flex items-center gap-2">
                 <input
+                  id="query-input"
                   type="text"
                   placeholder="Type your message..."
-                  className="flex-1 rounded-md border p-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 text-white rounded-md border p-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <Button variant="outline" className="p-2">
+                <Button onClick={sendQuery} variant="outline" className="p-2">
                   <Send size={16} />
                 </Button>
               </div>
