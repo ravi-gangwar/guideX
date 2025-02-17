@@ -159,7 +159,9 @@ const ContentPage: React.FC = () => {
   const [showChatbox, setShowChatbox] = useState(false);
 
   return (
-    <div className="fixed bottom-8 right-8 z-10000">
+    <div style={{
+      zIndex: 10000,
+    }} className="fixed bottom-10 right-20 z-10000">
       <ChatBox visible={showChatbox} />
       <Button
         size="icon"

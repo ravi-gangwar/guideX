@@ -60,6 +60,7 @@ const Popup: React.FC = () => {
         <>
           <Input
             value={savedKey}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSavedKey(e.target.value)}
             id='api-key'
             type="text"
             placeholder="Enter the API Key"
