@@ -30,7 +30,7 @@ const Popup: React.FC = () => {
 
   const maskApiKey = (key: string) => {
     if (!key) return ''
-    return key.substring(0, 4) + '*'.repeat(key.length - 4)
+    return key.substring(0, 4) + '*'.repeat(15)
   }
 
   return (
@@ -59,6 +59,7 @@ const Popup: React.FC = () => {
       ) : (
         <>
           <Input
+            value={savedKey}
             id='api-key'
             type="text"
             placeholder="Enter the API Key"

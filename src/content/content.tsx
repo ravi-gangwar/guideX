@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
-import { Bot, Send } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useChromeStorage } from '@/hooks/useChromeStorage'
-import generateDetailedSteps from '@/lib/generateDetailsSteps'
+import React, { useEffect, useState, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Bot, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useChromeStorage } from '@/hooks/useChromeStorage';
+import generateDetailedSteps from '@/lib/generateDetailsSteps';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 
 interface StepDetail {
   tag: string;
@@ -21,68 +23,85 @@ interface Step {
 }
 
 interface Message {
-  id: number
-  text: string
-  sender: 'user' | 'assistant'
+  id: number;
+  text: string;
+  sender: 'user' | 'assistant';
 }
 
 const ChatBox = ({ visible }: { visible: boolean }) => {
-  const [apiKey, setApiKey] = useState<string>('')
-  const [html, setHtml] = useState<string>('')
-  const [websiteContext, setWebsiteContext] = useState<string>('')
-  const [messages, setMessages] = useState<Message[]>([])
-  const { getKeyModel } = useChromeStorage()
+  const [apiKey, setApiKey] = useState<string>('');
+  const [html, setHtml] = useState<string>('');
+  const [websiteContext, setWebsiteContext] = useState<string>('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const { getKeyModel } = useChromeStorage();
 
   useEffect(() => {
     const fetchKeyAndContext = async () => {
       try {
-        const key = await getKeyModel('groq')
-        setApiKey(key.apiKey)
-        setHtml(document.documentElement.outerHTML)
-        setWebsiteContext(window.location.href)
+        const key = await getKeyModel('groq');
+        setApiKey(key.apiKey);
+        setHtml(document.documentElement.outerHTML);
+        setWebsiteContext(window.location.href);
       } catch (error) {
-        console.error('Error fetching API key')
+        console.error('Error fetching API key');
       }
-    }
-    fetchKeyAndContext()
-  }, [getKeyModel])
+    };
+    fetchKeyAndContext();
+  }, [getKeyModel]);
 
   const sendQuery = useCallback(async () => {
     try {
-      const input = document.querySelector('#query-input') as HTMLInputElement
-      if (!input || !input.value.trim()) return
+      const input = document.querySelector('#query-input') as HTMLInputElement;
+      if (!input || !input.value.trim()) return;
 
-      const query = input.value.trim()
-      input.value = '' // Clear input field after sending
+      const query = input.value.trim();
+      input.value = ''; // Clear input field after sending
 
-      setMessages((prev) => [...prev, { id: Date.now(), text: query, sender: 'user' }])
+      setMessages((prev) => [...prev, { id: Date.now(), text: query, sender: 'user' }]);
 
-      const detailedSteps = await generateDetailedSteps(query, websiteContext, html, apiKey)
-      
+      const detailedSteps = await generateDetailedSteps(query, websiteContext, html, apiKey);
+      console.log(detailedSteps);
       if (!detailedSteps || !detailedSteps.steps || !Array.isArray(detailedSteps.steps)) {
-        throw new Error('Invalid response format')
+        throw new Error('Invalid response format');
       }
 
-      // Format the steps into a readable message
+      // Format steps into a readable message
       const stepsMessage = detailedSteps.steps.map((step: Step, index: number) => {
-        return `Step ${index + 1}: ${step.instruction}`
-      }).join('\n')
+        return `Step ${index + 1}: ${step.instruction}`;
+      }).join('\n');
 
-      setMessages((prev) => [...prev, { 
-        id: Date.now(), 
-        text: stepsMessage, 
-        sender: 'assistant' 
-      }])
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), text: stepsMessage, sender: 'assistant' },
+      ]);
 
+      // Create driver.js steps from detailed steps
+      const highlightSteps = detailedSteps.steps.map((step: Step, index: number) => ({
+        element: step.selector, // Target element
+        popover: {
+          title: `Step ${index + 1}`,
+          description: step.instruction,
+        },
+      }));
+
+      // Initialize driver.js instance and start it
+      const driverObj = driver({
+        showProgress: true,
+        steps: highlightSteps,
+      });
+      driverObj.drive();
     } catch (error) {
-      console.error('Error sending query')
-      setMessages((prev) => [...prev, {
-        id: Date.now(),
-        text: "Sorry, I encountered an error processing your request. Please try again.",
-        sender: 'assistant'
-      }])
+      console.error('Error sending query');
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: "Sorry, I encountered an error processing your request. Please try again.",
+          sender: 'assistant',
+        },
+      ]);
     }
-  }, [websiteContext, html, apiKey])
+  }, [websiteContext, html, apiKey]);
 
   return (
     <AnimatePresence>
@@ -92,7 +111,7 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 10, scale: 0.9 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
-          className="bg-white absolute dark:bg-gray-800 rounded-xl shadow-2xl w-96 h-[500px] p-4 bottom-20 right-10 z-50 border border-gray-300 dark:border-gray-700 backdrop-blur-md"
+          className="bg-white absolute dark:bg-gray-800 rounded-xl shadow-2xl w-[400px] h-[500px] p-4 bottom-20 right-10 z-50 border border-gray-300 dark:border-gray-700 backdrop-blur-md"
         >
           <div className="flex flex-col h-full">
             {/* Header */}
@@ -110,9 +129,7 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
                     msg.sender === 'user' ? 'bg-blue-500 text-white self-end' : 'bg-gray-100 dark:bg-gray-700 self-start'
                   }`}
                 >
-                  <pre className="whitespace-pre-wrap break-words">
-                    {msg.text}
-                  </pre>
+                  <pre className="whitespace-pre-wrap break-words">{msg.text}</pre>
                 </div>
               ))}
             </div>
@@ -124,7 +141,7 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
                   id="query-input"
                   type="text"
                   placeholder="Type your message..."
-                  className="flex-1 text-white rounded-md border p-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 dark:text-white text-black rounded-md border p-2 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <Button onClick={sendQuery} variant="outline" className="p-2">
                   <Send size={16} />
@@ -135,14 +152,14 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
         </motion.div>
       )}
     </AnimatePresence>
-  )
-}
+  );
+};
 
 const ContentPage: React.FC = () => {
-  const [showChatbox, setShowChatbox] = useState(false)
+  const [showChatbox, setShowChatbox] = useState(false);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
+    <div className="fixed bottom-8 right-8 z-10000">
       <ChatBox visible={showChatbox} />
       <Button
         size="icon"
@@ -152,7 +169,7 @@ const ContentPage: React.FC = () => {
         <Bot />
       </Button>
     </div>
-  )
-}
+  );
+};
 
-export default ContentPage
+export default ContentPage;
