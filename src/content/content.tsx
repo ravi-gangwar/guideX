@@ -7,6 +7,7 @@ import generateDetailedSteps from '@/lib/generateDetailsSteps'
 import { driver } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import { gemini } from '@/constants/variables'
+import * as Switch from '@radix-ui/react-switch'
 
 interface Step {
   instruction: string
@@ -27,6 +28,7 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
   const [loading, setLoading] = useState(false) // Typing indicator state
   const { getKeyModel } = useChromeStorage()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [autoClick, setAutoClick] = useState(true)
 
   useEffect(() => {
     const fetchKeyAndContext = async () => {
@@ -122,7 +124,7 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
 
       setLoading(false)
 
-      // Highlight steps in driver.js
+      // Highlight steps using driver.js first
       const highlightSteps = detailedSteps.steps.map(
         (step: Step, index: number) => ({
           element: step.selector,
@@ -133,8 +135,23 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
         })
       )
 
-      const driverObj = driver({ showProgress: true, steps: highlightSteps })
+      const driverObj = driver({
+        showProgress: true,
+        steps: highlightSteps,
+      })
+
       driverObj.drive()
+
+      if (autoClick) {
+        for (let i = 0; i < detailedSteps.steps.length; i++) {
+          const step = detailedSteps.steps[i]
+
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          const element = document.querySelector(step.selector) as HTMLElement
+          if (element) element.click()
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+      }
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -166,6 +183,20 @@ const ChatBox = ({ visible }: { visible: boolean }) => {
             {/* Header */}
             <div className="border-b pb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Chat Assistant</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">Auto-click</span>
+                <Switch.Root
+                  checked={autoClick}
+                  onCheckedChange={() => setAutoClick((prev) => !prev)}
+                  className="w-10 h-5 bg-gray-300 rounded-full relative transition"
+                >
+                  <Switch.Thumb
+                    className={`block w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${
+                      autoClick ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </Switch.Root>
+              </div>
               <span className="text-gray-500 text-sm">Online</span>
             </div>
 
