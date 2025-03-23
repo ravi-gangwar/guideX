@@ -1,42 +1,33 @@
-import prompt from "@/constants/prompt";
-import Groq from 'groq-sdk';
-
-async function generateDetailedSteps(userQuery: string, websiteContext: string, websiteHTML: string, apiKey: string) {
-const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true })
+import useGemini from "@/aiModels/gemini";
+import { prompt } from "@/constants/prompt";
 
 
-  // Limit the size of the input data
-  const maxLength = 10000; // Example limit, adjust as needed
+async function generateDetailedSteps(userQuery: string, websiteContext: string, websiteHTML: string | undefined, apiKey: string) {
+  console.log("Generating detailed steps...", { userQuery, websiteContext, websiteHTML, apiKey });
+
+  const maxLength = 20000;
   const trimmedUserQuery = userQuery.length > maxLength ? userQuery.substring(0, maxLength) : userQuery;
   const trimmedWebsiteContext = websiteContext.length > maxLength ? websiteContext.substring(0, maxLength) : websiteContext;
-  const trimmedWebsiteHTML = websiteHTML && websiteHTML.length > maxLength ? websiteHTML.substring(0, maxLength) : websiteHTML;
 
-  const promptText = prompt(trimmedUserQuery, trimmedWebsiteContext, trimmedWebsiteHTML);
+  const promptText = prompt(trimmedUserQuery, trimmedWebsiteContext, websiteHTML);
 
   try {
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are an AI assistant that generates precise website navigation steps with CSS selectors and their attributes."
-        },
-        {
-          role: "user",
-          content: promptText
-        }
-      ],
-      model: "llama-3.3-70b-versatile",
-    });
+    // Call Gemini API
+    const responseText = await useGemini(promptText);
+    // Extract JSON from Markdown code block
+    const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+    
+    if (!jsonMatch) {
+      throw new Error("Invalid response format (JSON block not found)");
+    }
 
-    let responseText = completion.choices[0]?.message?.content || "{}";
+    // Parse the extracted JSON
+    const parsedData = JSON.parse(jsonMatch[1]);
 
-    // Remove unwanted markdown formatting
-    responseText = responseText.replace(/^```json\s*|```$/g, '').trim();
-
-    return JSON.parse(responseText);
+    return parsedData;
   } catch (error) {
     console.error("Error parsing JSON:", error);
-    throw new Error("Invalid JSON received from Groq API");
+    throw new Error("Invalid JSON received from Gemini API");
   }
 }
 

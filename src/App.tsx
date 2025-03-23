@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Link, Edit2 } from 'lucide-react'
 import { useChromeStorage } from './hooks/useChromeStorage'
+import { gemini } from './constants/variables'
 
 const Popup: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false)
@@ -11,21 +12,17 @@ const Popup: React.FC = () => {
 
   useEffect(() => {
     const fetchSavedKey = async () => {
-      const result = await getKeyModel('groq')
-      if (result.apiKey) {
+      const result = await getKeyModel(gemini)
+      if (result?.apiKey) {
         setSavedKey(result.apiKey)
       }
     }
     fetchSavedKey()
-  }, [])
+  }, [getKeyModel])
 
-  const saveApiKey = () => {
-    const apiKey = document.getElementById('api-key') as HTMLInputElement
-    if (apiKey) {
-      setKeyModel(apiKey.value, 'groq')
-      setSavedKey(apiKey.value)
-      setIsEditing(false)
-    }
+  const saveApiKey = async () => {
+    await setKeyModel(savedKey, gemini)
+    setIsEditing(false)
   }
 
   const maskApiKey = (key: string) => {
@@ -60,14 +57,14 @@ const Popup: React.FC = () => {
         <>
           <Input
             value={savedKey}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSavedKey(e.target.value)}
-            id='api-key'
+            onChange={(e) => setSavedKey(e.target.value)}
+            id="api-key"
             type="text"
             placeholder="Enter the API Key"
             className="mt-3 w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
           />
-          <Button 
-            onClick={saveApiKey} 
+          <Button
+            onClick={saveApiKey}
             className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-all"
           >
             Save
@@ -75,12 +72,12 @@ const Popup: React.FC = () => {
         </>
       )}
 
-      <p className='text-sm flex gap-2 justify-center items-center text-gray-600 dark:text-gray-300 mt-2 text-center'>
-        Get your api key
-        <a 
-          href="https://console.groq.com/keys" 
-          className='text-blue-500 flex justify-center items-center gap-1'
-          target='_blank'
+      <p className="text-sm flex gap-2 justify-center items-center text-gray-600 dark:text-gray-300 mt-2 text-center">
+        Get your API key
+        <a
+          href="https://aistudio.google.com/app/apikey"
+          className="text-blue-500 flex justify-center items-center gap-1"
+          target="_blank"
         >
           here
           <Link size={16} />
